@@ -142,6 +142,6 @@ mod tests {
     fn arithmetic() {
         let expr = (i(10) - i(1)) / i(3);
         // (10 + (1 * -1)) * (3^-1)
-        panic!("{:#?}", expr);
+        panic!("{:#?}", expr.simplify());
     }
 }
