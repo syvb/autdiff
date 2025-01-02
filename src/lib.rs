@@ -5,9 +5,9 @@ pub struct Expr {
     pub kind: Box<ExprKind>,
 }
 impl Expr {
-    pub fn i(n: i64) -> Self {
+    pub fn n(n: f64) -> Self {
         Expr {
-            kind: Box::new(ExprKind::Integer(n)),
+            kind: Box::new(ExprKind::Number(n)),
         }
     }
 }
@@ -18,17 +18,17 @@ impl Expr {
         }
     }
     pub fn recip(self) -> Self {
-        self.pow(i(-1))
+        self.pow(n(-1.))
     }
 }
 #[inline(always)]
-pub fn i(n: i64) -> Expr {
-    Expr::i(n)
+pub fn n(n: f64) -> Expr {
+    Expr::n(n)
 }
 
 #[derive(Debug, Clone)]
 pub enum ExprKind {
-    Integer(i64),
+    Number(f64),
 
     // simple binary ops
     Add(Expr, Expr),
@@ -39,17 +39,17 @@ pub enum ExprKind {
 impl Expr {
     pub fn simplify(self) -> Self {
         match *self.kind {
-            ExprKind::Integer(_) => self,
+            ExprKind::Number(_) => self,
             ExprKind::Add(x, y) => {
                 let x = x.simplify();
                 let y = y.simplify();
                 match (&*x.kind, &*y.kind) {
-                    (ExprKind::Integer(x), ExprKind::Integer(0))
-                    | (ExprKind::Integer(0), ExprKind::Integer(x)) => Expr {
-                        kind: Box::new(ExprKind::Integer(*x)),
+                    (ExprKind::Number(x), ExprKind::Number(0.))
+                    | (ExprKind::Number(0.), ExprKind::Number(x)) => Expr {
+                        kind: Box::new(ExprKind::Number(*x)),
                     },
-                    (ExprKind::Integer(x), ExprKind::Integer(y)) => Expr {
-                        kind: Box::new(ExprKind::Integer(x + y)),
+                    (ExprKind::Number(x), ExprKind::Number(y)) => Expr {
+                        kind: Box::new(ExprKind::Number(x + y)),
                     },
                     _ => Expr {
                         kind: Box::new(ExprKind::Add(x, y)),
@@ -60,19 +60,15 @@ impl Expr {
                 let x = x.simplify();
                 let y = y.simplify();
                 match (&*x.kind, &*y.kind) {
-                    (x, ExprKind::Integer(1)) => Expr {
+                    (x, ExprKind::Number(1.)) => Expr {
                         kind: Box::new(x.clone()),
                     },
-                    (_, ExprKind::Integer(0)) => i(1),
-                    (ExprKind::Integer(0), _) => i(0),
-                    (ExprKind::Integer(1), _) => i(1),
-                    (ExprKind::Integer(x), ExprKind::Integer(y))
-                        if *y > 0 && *y < u32::MAX as i64 =>
-                    {
-                        Expr {
-                            kind: Box::new(ExprKind::Integer(x.pow(*y as u32))),
-                        }
-                    }
+                    (_, ExprKind::Number(0.)) => n(1.),
+                    (ExprKind::Number(0.), _) => n(0.),
+                    (ExprKind::Number(1.), _) => n(1.),
+                    (ExprKind::Number(x), ExprKind::Number(y)) => Expr {
+                        kind: Box::new(ExprKind::Number(x.powf(*y))),
+                    },
                     _ => Expr {
                         kind: Box::new(ExprKind::Pow(x, y)),
                     },
@@ -81,9 +77,9 @@ impl Expr {
             ExprKind::Mul(x, y) => {
                 let x = x.simplify();
                 let y = y.simplify();
-                if let (ExprKind::Integer(x), ExprKind::Integer(y)) = (&*x.kind, &*y.kind) {
+                if let (ExprKind::Number(x), ExprKind::Number(y)) = (&*x.kind, &*y.kind) {
                     Expr {
-                        kind: Box::new(ExprKind::Integer((|x, y| x * y)(x, y))),
+                        kind: Box::new(ExprKind::Number((|x, y| x * y)(x, y))),
                     }
                 } else {
                     Expr {
@@ -129,7 +125,7 @@ impl ops::Neg for Expr {
     type Output = Self;
     fn neg(self) -> Self::Output {
         Expr {
-            kind: Box::new(ExprKind::Mul(self, i(-1))),
+            kind: Box::new(ExprKind::Mul(self, n(-1.))),
         }
     }
 }
@@ -140,7 +136,7 @@ mod tests {
 
     #[test]
     fn arithmetic() {
-        let expr = (i(10) - i(1)) / i(3);
+        let expr = (n(10.) - n(1.)) / n(4.);
         // (10 + (1 * -1)) * (3^-1)
         panic!("{:#?}", expr.simplify());
     }
