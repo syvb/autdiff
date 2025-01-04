@@ -1,4 +1,4 @@
-use std::ops;
+use std::{fmt::Display, ops};
 
 #[derive(Debug, Clone)]
 pub struct Expr {
@@ -8,6 +8,11 @@ impl Expr {
     pub fn n(n: f64) -> Self {
         Expr {
             kind: Box::new(ExprKind::Number(n)),
+        }
+    }
+    pub fn v(name: &'static str) -> Self {
+        Expr {
+            kind: Box::new(ExprKind::Variable(name)),
         }
     }
 }
@@ -20,34 +25,47 @@ impl Expr {
     pub fn recip(self) -> Self {
         self.pow(n(-1.))
     }
+    pub fn ln(self) -> Self {
+        Expr {
+            kind: Box::new(ExprKind::Ln(self)),
+        }
+    }
 }
 #[inline(always)]
 pub fn n(n: f64) -> Expr {
     Expr::n(n)
 }
+pub fn v(name: &'static str) -> Expr {
+    Expr::v(name)
+}
 
 #[derive(Debug, Clone)]
 pub enum ExprKind {
+    Variable(&'static str),
     Number(f64),
 
-    // simple binary ops
     Add(Expr, Expr),
     Mul(Expr, Expr),
     Pow(Expr, Expr),
+    Ln(Expr),
 }
 
 impl Expr {
     pub fn simplify(self) -> Self {
         match *self.kind {
-            ExprKind::Number(_) => self,
+            ExprKind::Number(_) | ExprKind::Variable(_) | ExprKind::Ln(_) => self,
             ExprKind::Add(x, y) => {
                 let x = x.simplify();
                 let y = y.simplify();
                 match (&*x.kind, &*y.kind) {
-                    (ExprKind::Number(x), ExprKind::Number(0.))
-                    | (ExprKind::Number(0.), ExprKind::Number(x)) => Expr {
-                        kind: Box::new(ExprKind::Number(*x)),
-                    },
+                    (ExprKind::Number(x), ExprKind::Number(z))
+                    | (ExprKind::Number(z), ExprKind::Number(x))
+                        if z.abs() < 0.0001 =>
+                    {
+                        Expr {
+                            kind: Box::new(ExprKind::Number(*x)),
+                        }
+                    }
                     (ExprKind::Number(x), ExprKind::Number(y)) => Expr {
                         kind: Box::new(ExprKind::Number(x + y)),
                     },
@@ -77,16 +95,45 @@ impl Expr {
             ExprKind::Mul(x, y) => {
                 let x = x.simplify();
                 let y = y.simplify();
-                if let (ExprKind::Number(x), ExprKind::Number(y)) = (&*x.kind, &*y.kind) {
-                    Expr {
-                        kind: Box::new(ExprKind::Number((|x, y| x * y)(x, y))),
+                match (&*x.kind, &*y.kind) {
+                    (_, ExprKind::Number(z)) | (ExprKind::Number(z), _) if z.abs() < 0.0001 => {
+                        n(0.)
                     }
-                } else {
-                    Expr {
+                    (ExprKind::Number(x), ExprKind::Number(y)) => Expr {
+                        kind: Box::new(ExprKind::Number(x * y)),
+                    },
+                    _ => Expr {
                         kind: Box::new(ExprKind::Mul(x, y)),
-                    }
+                    },
                 }
             }
+        }
+    }
+    pub fn diff(self, to: &'static str) -> Self {
+        match *self.kind {
+            ExprKind::Variable(v) if v == to => n(1.),
+            ExprKind::Variable(_) => n(0.),
+            ExprKind::Number(_) => n(0.),
+            ExprKind::Add(a, b) => a.diff(to) + b.diff(to),
+            ExprKind::Mul(a, b) => a.clone().diff(to) * b.clone() + a * b.diff(to),
+            ExprKind::Pow(a, b) => {
+                a.clone().pow(b.clone() - n(1.))
+                    * (a.clone().diff(to) * b.clone() + a.clone() * a.ln() * b.diff(to))
+            }
+            ExprKind::Ln(a) => a.recip(),
+        }
+    }
+}
+
+impl Display for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self.kind.clone() {
+            ExprKind::Variable(v) => f.write_str(v),
+            ExprKind::Number(n) => f.write_fmt(format_args!("{}", n)),
+            ExprKind::Ln(expr) => f.write_fmt(format_args!("ln({})", expr)),
+            ExprKind::Add(a, b) => f.write_fmt(format_args!("({})+({})", a, b)),
+            ExprKind::Mul(a, b) => f.write_fmt(format_args!("({})*({})", a, b)),
+            ExprKind::Pow(a, b) => f.write_fmt(format_args!("({})^({})", a, b)),
         }
     }
 }
@@ -137,7 +184,16 @@ mod tests {
     #[test]
     fn arithmetic() {
         let expr = (n(10.) - n(1.)) / n(4.);
-        // (10 + (1 * -1)) * (3^-1)
-        panic!("{:#?}", expr.simplify());
+        panic!("{}", expr);
+    }
+
+    #[test]
+    fn diff() {
+        let expr = v("x").pow(n(-3.));
+        panic!(
+            "{}, simple: {}",
+            expr.clone().diff("x"),
+            expr.diff("x").simplify()
+        );
     }
 }
