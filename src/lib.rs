@@ -58,12 +58,12 @@ impl Expr {
                 let x = x.simplify();
                 let y = y.simplify();
                 match (&*x.kind, &*y.kind) {
-                    (ExprKind::Number(x), ExprKind::Number(z))
-                    | (ExprKind::Number(z), ExprKind::Number(x))
+                    (x, ExprKind::Number(z))
+                    | (ExprKind::Number(z), x)
                         if z.abs() < 0.0001 =>
                     {
                         Expr {
-                            kind: Box::new(ExprKind::Number(*x)),
+                            kind: Box::new(x.clone()),
                         }
                     }
                     (ExprKind::Number(x), ExprKind::Number(y)) => Expr {
@@ -191,6 +191,17 @@ mod tests {
     #[test]
     fn diff() {
         let expr = v("x").pow(n(-3.));
+        panic!(
+            "{}, simple: {}",
+            expr.clone().diff("x"),
+            expr.diff("x").simplify()
+        );
+    }
+
+    #[test]
+    fn diff_complex() {
+        // (x * (5 - x))^-3 / y
+        let expr = (v("x") * (n(5.) - v("x"))).pow(n(-3.)) / v("y");
         panic!(
             "{}, simple: {}",
             expr.clone().diff("x"),
