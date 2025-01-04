@@ -120,7 +120,8 @@ impl Expr {
                 a.clone().pow(b.clone() - n(1.))
                     * (a.clone().diff(to) * b.clone() + a.clone() * a.ln() * b.diff(to))
             }
-            ExprKind::Ln(a) => a.recip(),
+            // ln(g(x)) = ln'(g(x))*g'(x) = 1/g(x) * g'(x)
+            ExprKind::Ln(a) => a.clone().recip() * a.diff(to),
         }
     }
 }
