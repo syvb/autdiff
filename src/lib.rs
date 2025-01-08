@@ -58,10 +58,7 @@ impl Expr {
                 let x = x.simplify();
                 let y = y.simplify();
                 match (&*x.kind, &*y.kind) {
-                    (x, ExprKind::Number(z))
-                    | (ExprKind::Number(z), x)
-                        if z.abs() < 0.0001 =>
-                    {
+                    (x, ExprKind::Number(z)) | (ExprKind::Number(z), x) if z.abs() < 0.0001 => {
                         Expr {
                             kind: Box::new(x.clone()),
                         }
