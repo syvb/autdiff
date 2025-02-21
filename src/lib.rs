@@ -1,7 +1,4 @@
-use std::{
-    fmt::Display,
-    ops::{self, Add},
-};
+use std::{fmt::Display, ops};
 
 #[derive(Debug, Clone)]
 pub struct Expr {
