@@ -1,4 +1,7 @@
-use std::{fmt::Display, ops};
+use std::{
+    fmt::Display,
+    ops::{self, Add},
+};
 
 #[derive(Debug, Clone)]
 pub struct Expr {
@@ -39,9 +42,11 @@ pub fn v(name: &'static str) -> Expr {
     Expr::v(name)
 }
 
+type VariableType = &'static str;
+
 #[derive(Debug, Clone)]
 pub enum ExprKind {
-    Variable(&'static str),
+    Variable(VariableType),
     Number(f64),
 
     Add(Expr, Expr),
@@ -129,6 +134,54 @@ impl Expr {
             ExprKind::Ln(a) => a.clone().recip() * a.diff(to),
         }
     }
+    pub fn be_walked<F>(self, transform: &F) -> Expr
+    where
+        F: Fn(Expr) -> Expr,
+    {
+        match *self.kind {
+            ExprKind::Variable(_) | ExprKind::Number(_) => transform(self),
+            ExprKind::Add(x, y) => {
+                let x = Self::be_walked(x, transform);
+                let y = Self::be_walked(y, transform);
+                transform(Expr {
+                    kind: Box::new(ExprKind::Add(x, y)),
+                })
+            }
+            ExprKind::Mul(x, y) => {
+                let x = Self::be_walked(x, transform);
+                let y = Self::be_walked(y, transform);
+                transform(Expr {
+                    kind: Box::new(ExprKind::Mul(x, y)),
+                })
+            }
+            ExprKind::Pow(x, y) => {
+                let x = Self::be_walked(x, transform);
+                let y = Self::be_walked(y, transform);
+                transform(Expr {
+                    kind: Box::new(ExprKind::Pow(x, y)),
+                })
+            }
+            ExprKind::Ln(x) => {
+                let x = Self::be_walked(x, transform);
+                transform(Expr {
+                    kind: Box::new(ExprKind::Ln(x)),
+                })
+            }
+        }
+    }
+    pub fn subst(self, var: VariableType, with: Expr) -> Self {
+        self.be_walked(&|expr: Expr| {
+            if let ExprKind::Variable(this_var) = *expr.kind {
+                if var == this_var {
+                    with.clone()
+                } else {
+                    expr
+                }
+            } else {
+                expr
+            }
+        })
+    }
 }
 
 impl Display for Expr {
@@ -139,7 +192,7 @@ impl Display for Expr {
             ExprKind::Ln(expr) => f.write_fmt(format_args!("ln({})", expr)),
             ExprKind::Add(a, b) => f.write_fmt(format_args!("({})+({})", a, b)),
             ExprKind::Mul(a, b) => f.write_fmt(format_args!("({})*({})", a, b)),
-            ExprKind::Pow(a, b) => f.write_fmt(format_args!("({})^({})", a, b)),
+            ExprKind::Pow(a, b) => f.write_fmt(format_args!("({})**({})", a, b)),
         }
     }
 }
@@ -206,11 +259,18 @@ mod tests {
     #[test]
     fn diff_complex() {
         // (x * (5 - x))^-3 / y
-        let expr = (v("x") * (n(5.) - v("x"))).pow(n(-3.)) / v("y");
+        // let expr = (v("x") * (n(5.) - v("x"))).pow(n(-3.)) / v("y");
+        let expr = v("x").pow(n(-3.));
         panic!(
-            "{}, simple: {}",
+            "{}, simple: {}, replaced: {}, replaced simple: {}",
             expr.clone().diff("x"),
-            expr.diff("x").simplify()
+            expr.clone().diff("x").simplify(),
+            expr.clone().diff("x").subst("x", n(1.5)).subst("y", n(4.0)),
+            expr.clone()
+                .diff("x")
+                .subst("x", n(1.5))
+                .subst("y", n(4.0))
+                .simplify(),
         );
     }
 }
