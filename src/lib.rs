@@ -256,18 +256,13 @@ mod tests {
     #[test]
     fn diff_complex() {
         // (x * (5 - x))^-3 / y
-        // let expr = (v("x") * (n(5.) - v("x"))).pow(n(-3.)) / v("y");
-        let expr = v("x").pow(n(-3.));
+        let expr = (v("x") * (n(5.) - v("x"))).pow(n(-3.));
         panic!(
             "{}, simple: {}, replaced: {}, replaced simple: {}",
             expr.clone().diff("x"),
             expr.clone().diff("x").simplify(),
-            expr.clone().diff("x").subst("x", n(1.5)).subst("y", n(4.0)),
-            expr.clone()
-                .diff("x")
-                .subst("x", n(1.5))
-                .subst("y", n(4.0))
-                .simplify(),
+            expr.clone().diff("x").subst("x", n(4.8)),
+            expr.clone().diff("x").subst("x", n(4.8)).simplify(),
         );
     }
 }
