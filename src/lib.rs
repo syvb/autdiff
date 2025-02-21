@@ -53,7 +53,15 @@ pub enum ExprKind {
 impl Expr {
     pub fn simplify(self) -> Self {
         match *self.kind {
-            ExprKind::Number(_) | ExprKind::Variable(_) | ExprKind::Ln(_) => self,
+            ExprKind::Number(_) | ExprKind::Variable(_) => self,
+            ExprKind::Ln(x) => {
+                let x = x.simplify();
+                if let ExprKind::Number(num) = *x.kind {
+                    n(num.ln())
+                } else {
+                    x
+                }
+            }
             ExprKind::Add(x, y) => {
                 let x = x.simplify();
                 let y = y.simplify();
